@@ -193,3 +193,11 @@ def hash_payload(payload: Any) -> str:
     """Hash an arbitrary payload for audit recording."""
     canonical = json.dumps(payload, sort_keys=True, default=str, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+# Re-export for generated routes and tests
+from .middleware import (
+    get_audit_store,
+    init_audit_store,
+    log_audit_event,
+)

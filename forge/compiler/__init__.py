@@ -208,6 +208,28 @@ def _generate_tests(spec: PlatformSpec) -> str:
                     "",
                 ])
 
+    # Audit chain integrity test (forge substrate; use tmp_path so DB table is visible)
+    lines.extend([
+        "",
+        "def test_audit_chain_integrity(tmp_path):",
+        '    """Verify audit hash chain linkage (forge.substrate.zuup_audit)."""',
+        "    from forge.substrate.zuup_audit import AuditEntry, SQLiteAuditStore",
+        "    store = SQLiteAuditStore(str(tmp_path / \"audit.db\"))",
+        "    for i in range(5):",
+        "        store.append(AuditEntry(",
+        "            platform=\"test\",",
+        "            action=f\"action_{i}\",",
+        "            principal_id=\"tester\",",
+        "            entity_type=\"test\",",
+        "            entity_id=str(i),",
+        "            payload_hash=f\"hash_{i}\",",
+        "        ))",
+        "    result = store.verify_chain(\"test\", limit=10)",
+        "    assert result.valid",
+        "    assert result.entries_checked == 5",
+        "",
+    ])
+
     return "\n".join(lines)
 
 

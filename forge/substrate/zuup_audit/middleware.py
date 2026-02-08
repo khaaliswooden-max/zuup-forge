@@ -32,6 +32,28 @@ def get_audit_store() -> SQLiteAuditStore:
     return _audit_store
 
 
+def log_audit_event(
+    *,
+    platform: str,
+    action: str,
+    principal_id: str,
+    entity_type: str,
+    entity_id: str,
+    payload: dict,
+) -> str:
+    """Append a write-operation event to the audit hash chain. Used by generated routes."""
+    store = get_audit_store()
+    entry = AuditEntry(
+        platform=platform,
+        action=action,
+        principal_id=principal_id,
+        entity_type=entity_type,
+        entity_id=entity_id,
+        payload_hash=hash_payload(payload),
+    )
+    return store.append(entry)
+
+
 class AuditMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, platform: str = "unknown"):
         super().__init__(app)

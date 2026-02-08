@@ -107,8 +107,11 @@ def _generate_get_by_id_handler(spec: PlatformSpec, entity: Entity, route: APIRo
 
 
 def _generate_create_handler(spec: PlatformSpec, entity: Entity, route: APIRoute) -> list[str]:
-    """Generate POST create handler."""
+    """Generate POST create handler with audit logging."""
+    platform_name = spec.platform.name
     table = _entity_table_name(entity)
+    entity_upper = entity.name.upper()
+    entity_lower = entity.name.lower()
     cols = ["id", "created_at", "updated_at"]
     if entity.soft_delete:
         cols.append("deleted_at")
@@ -117,7 +120,7 @@ def _generate_create_handler(spec: PlatformSpec, entity: Entity, route: APIRoute
     col_str = ", ".join(cols)
     lines = [
         f'@router.post("{route.path}", status_code=201)',
-        f"async def {_route_function_name(route, 'POST')}(body: {entity.name}Create):",
+        f"async def {_route_function_name(route, 'POST')}(body: {entity.name}Create, principal: ZuupPrincipal = Depends(get_principal)):",
         f'    """Create {entity.name}."""',
         "    conn = get_db()",
         "    now = datetime.now(timezone.utc).isoformat()",
@@ -133,6 +136,7 @@ def _generate_create_handler(spec: PlatformSpec, entity: Entity, route: APIRoute
         f'    conn.execute("INSERT INTO {table} ({col_str}) VALUES ({placeholders})", values)',
         "    conn.commit()",
         "    conn.close()",
+        f'    log_audit_event(platform="{platform_name}", action="CREATE_{entity_upper}", principal_id=principal.id, entity_type="{entity_lower}", entity_id=row_id, payload=body.model_dump())',
         "    return {'id': row_id, 'created_at': now}",
         "",
         "",
@@ -141,11 +145,14 @@ def _generate_create_handler(spec: PlatformSpec, entity: Entity, route: APIRoute
 
 
 def _generate_update_handler(spec: PlatformSpec, entity: Entity, route: APIRoute) -> list[str]:
-    """Generate PUT update handler (only set provided fields)."""
+    """Generate PUT update handler (only set provided fields) with audit logging."""
+    platform_name = spec.platform.name
+    entity_upper = entity.name.upper()
+    entity_lower = entity.name.lower()
     table = _entity_table_name(entity)
     lines = [
         f'@router.put("{route.path}")',
-        f"async def {_route_function_name(route, 'PUT')}(id: str, body: {entity.name}Update):",
+        f"async def {_route_function_name(route, 'PUT')}(id: str, body: {entity.name}Update, principal: ZuupPrincipal = Depends(get_principal)):",
         f'    """Update {entity.name}."""',
         "    conn = get_db()",
         "    data = body.model_dump(exclude_unset=True)",
@@ -160,6 +167,7 @@ def _generate_update_handler(spec: PlatformSpec, entity: Entity, route: APIRoute
         f'    conn.execute(f"UPDATE {table} SET {{set_str}} WHERE id = ?", values)',
         "    conn.commit()",
         "    conn.close()",
+        f'    log_audit_event(platform="{platform_name}", action="UPDATE_{entity_upper}", principal_id=principal.id, entity_type="{entity_lower}", entity_id=id, payload=body.model_dump(exclude_unset=True))',
         "    return {'status': 'updated'}",
         "",
         "",
@@ -168,32 +176,36 @@ def _generate_update_handler(spec: PlatformSpec, entity: Entity, route: APIRoute
 
 
 def _generate_delete_handler(spec: PlatformSpec, entity: Entity, route: APIRoute) -> list[str]:
-    """Generate DELETE (soft) handler."""
+    """Generate DELETE (soft) handler with audit logging."""
+    platform_name = spec.platform.name
+    entity_upper = entity.name.upper()
+    entity_lower = entity.name.lower()
     table = _entity_table_name(entity)
     if not entity.soft_delete:
         return [
             f'@router.delete("{route.path}", status_code=204)',
-            f"async def {_route_function_name(route, 'DELETE')}(id: str):",
+            f"async def {_route_function_name(route, 'DELETE')}(id: str, principal: ZuupPrincipal = Depends(get_principal)):",
             "    raise HTTPException(501, detail='Hard delete not implemented')",
             "",
             "",
         ]
     return [
         f'@router.delete("{route.path}", status_code=204)',
-        f"async def {_route_function_name(route, 'DELETE')}(id: str):",
+        f"async def {_route_function_name(route, 'DELETE')}(id: str, principal: ZuupPrincipal = Depends(get_principal)):",
         f'    """Soft delete {entity.name}."""',
         "    conn = get_db()",
         "    now = datetime.now(timezone.utc).isoformat()",
         f'    conn.execute("UPDATE {table} SET deleted_at = ? WHERE id = ?", (now, id))',
         "    conn.commit()",
         "    conn.close()",
+        f'    log_audit_event(platform="{platform_name}", action="DELETE_{entity_upper}", principal_id=principal.id, entity_type="{entity_lower}", entity_id=id, payload={{}})',
         "",
         "",
     ]
 
 
 def generate_fastapi_routes(spec: PlatformSpec) -> str:
-    """Generate standalone FastAPI route handlers with SQLite CRUD (no forge imports)."""
+    """Generate FastAPI route handlers with SQLite CRUD, audit chain, and optional auth."""
     platform_name = spec.platform.name
     db_path = f'"{platform_name}.db"'
     display_name = spec.platform.display_name.encode("ascii", "replace").decode("ascii")
@@ -202,7 +214,7 @@ def generate_fastapi_routes(spec: PlatformSpec) -> str:
         '"""',
         f"Auto-generated API routes for {display_name}",
         f"Platform: {platform_name} v{spec.platform.version}",
-        "Standalone: no forge imports. Regenerate with `forge compile`.",
+        "Audit + optional auth from forge.substrate. Regenerate with `forge compile`.",
         '"""',
         "",
         "from __future__ import annotations",
@@ -211,7 +223,11 @@ def generate_fastapi_routes(spec: PlatformSpec) -> str:
         "import sqlite3",
         "from datetime import datetime, timezone",
         "",
-        "from fastapi import APIRouter, HTTPException",
+        "from fastapi import APIRouter, Depends, HTTPException",
+        "",
+        "from forge.substrate.zuup_audit import log_audit_event",
+        "from forge.substrate.zuup_auth import ZuupPrincipal",
+        "from forge.substrate.zuup_auth.middleware import get_principal",
         "",
         "from ..models import *",
         "",
@@ -278,14 +294,14 @@ def generate_fastapi_routes(spec: PlatformSpec) -> str:
 
 
 def generate_fastapi_app(spec: PlatformSpec) -> str:
-    """Generate standalone FastAPI app: CORS, health, ready, startup migration, no forge imports."""
+    """Generate FastAPI app: CORS, health, ready, startup migration + audit store init."""
     platform_name = spec.platform.name
     # Use ASCII-safe display name for generated docstring (avoid encoding issues on Windows)
     display_name = spec.platform.display_name.encode("ascii", "replace").decode("ascii")
     return f'''# -*- coding: utf-8 -*-
 """
 {display_name} - Auto-generated by Zuup Forge v0.1.0
-Standalone: no forge imports. Regenerate with `forge compile`.
+Audit + optional auth from forge.substrate. Regenerate with `forge compile`.
 """
 
 from __future__ import annotations
@@ -295,6 +311,8 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from forge.substrate.zuup_audit import init_audit_store
 
 from .routes import router
 
@@ -313,6 +331,7 @@ async def startup():
         conn = sqlite3.connect("{platform_name}.db")
         conn.executescript(migration_path.read_text())
         conn.close()
+    init_audit_store("{platform_name}.audit.db")
 
 
 @app.get("/health")
