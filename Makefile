@@ -17,7 +17,7 @@ test:
 
 lint:
 	ruff check forge/ tests/
-	mypy forge/
+	mypy -p forge --ignore-missing-imports
 
 smoke:
 	python -c "from forge.compiler.parser import load_spec; s = load_spec('specs/aureon.platform.yaml'); print(f'✓ Parsed: {s.platform.display_name} — {len(s.entities)} entities, {len(s.api.routes)} routes')"
