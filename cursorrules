@@ -1,0 +1,187 @@
+# Zuup Forge — Cursor AI Rules
+# Last updated: 2026-02-08
+# Purpose: Ground all AI-assisted development in verified facts, not aspirations.
+
+## PROJECT IDENTITY
+
+Zuup Forge is a declarative platform compiler:
+  Spec(YAML) → Codebase(Python + SQL + Config)
+
+It generates compliance-ready, audit-logged, AI-enabled platforms
+for federal procurement workflows. The ONLY platform being built
+right now is Aureon (federal procurement).
+
+## CRITICAL CONTEXT — DO NOT VIOLATE
+
+1. SOLO FOUNDER, ZERO BUDGET. No paid services. SQLite, not Postgres.
+   Ollama, not OpenAI. Free tiers only.
+2. ONE PLATFORM ONLY. Aureon. Do not reference Symbion, Orb, Veyra,
+   Civium, PodX, QAWM, Relian, Stratos, or Nexus in any code.
+   They exist only as future possibilities in specs/.
+3. TRL 3. This is proof-of-concept. Do not claim production-ready,
+   FedRAMP-certified, or enterprise-grade in any output.
+4. NO TODO COMMENTS in generated code. Every function must have a
+   working implementation, even if minimal (return empty list, raise
+   NotImplementedError with explanation, etc.)
+5. IMPORTS MUST RESOLVE. Every `from forge.xxx import yyy` must point
+   to an actual file with that symbol exported.
+
+## REPO STRUCTURE (TARGET — after remediation)
+
+```
+zuup-forge/
+├── .github/workflows/ci.yml      # GitHub Actions: lint → test → build
+├── .gitignore
+├── .cursorrules                   # This file
+├── README.md                      # Honest README (TRL 3, not TRL 9)
+├── pyproject.toml                 # Single source of truth for deps
+├── Makefile                       # Developer shortcuts
+│
+├── forge/                         # Python package — THE ENGINE
+│   ├── __init__.py                # Version string
+│   ├── cli/
+│   │   ├── __init__.py
+│   │   └── main.py                # Entry: `forge compile`, `forge dev`
+│   ├── compiler/
+│   │   ├── __init__.py            # compile_platform() orchestrator
+│   │   ├── parser.py              # YAML → PlatformSpec
+│   │   ├── spec_schema.py         # Pydantic models for the DSL
+│   │   ├── schema_gen.py          # PlatformSpec → SQL migrations
+│   │   ├── api_gen.py             # PlatformSpec → FastAPI routes + app
+│   │   └── templates/             # Jinja2 templates (future)
+│   └── substrate/
+│       ├── __init__.py
+│       ├── zuup_auth/
+│       │   ├── __init__.py        # JWT validation, RBAC, middleware
+│       │   └── middleware.py
+│       ├── zuup_audit/
+│       │   ├── __init__.py        # Hash-chain, SQLiteAuditStore
+│       │   └── middleware.py      # Auto-audit FastAPI middleware
+│       ├── zuup_observe/
+│       │   ├── __init__.py
+│       │   ├── tracing.py         # Structured logging, metrics
+│       │   └── health.py          # /health, /ready endpoints
+│       └── zuup_gateway/
+│           ├── __init__.py
+│           ├── rate_limit.py      # Token bucket rate limiter
+│           └── versioning.py      # API version header middleware
+│
+├── specs/
+│   └── aureon.platform.yaml       # THE spec. Only one that matters.
+│
+├── platforms/                     # Generated output (gitignored)
+│   └── aureon/                    # forge compile → creates this
+│       ├── app.py
+│       ├── models/
+│       ├── routes/
+│       ├── migrations/
+│       ├── services/
+│       ├── config/
+│       └── tests/
+│
+├── tests/
+│   ├── __init__.py
+│   ├── test_spec_schema.py        # Pydantic schema validation
+│   ├── test_parser.py             # YAML loading
+│   ├── test_schema_gen.py         # SQL generation
+│   ├── test_api_gen.py            # Route generation
+│   ├── test_compiler.py           # End-to-end: spec → files
+│   └── test_audit.py              # Hash-chain integrity
+│
+├── frontend/                      # Status dashboard (honest)
+│   ├── index.html                 # Single-page status + demo
+│   ├── style.css
+│   └── app.js
+│
+├── api/                           # Vercel serverless functions
+│   └── index.py                   # Health + status endpoint
+│
+└── vercel.json                    # Frontend + API routing
+```
+
+## PYTHON CONVENTIONS
+
+- Python 3.11+
+- Type hints on all function signatures
+- Pydantic v2 for all data models
+- pytest for testing, no unittest
+- Black formatting, ruff linting
+- Imports: stdlib → third-party → forge.*
+- Docstrings: one-line for simple, Google-style for complex
+- No global mutable state except explicit singletons (audit store)
+
+## DEPENDENCY CONSTRAINTS
+
+Production deps (pyproject.toml):
+  pydantic >= 2.0
+  pyyaml
+  fastapi
+  uvicorn[standard]
+  jinja2
+  httpx (for SAM.gov client)
+
+Dev deps:
+  pytest
+  pytest-cov
+  ruff
+  black
+  mypy
+
+BANNED (zero-budget rule):
+  langchain, langgraph     # too heavy, use direct API calls
+  openai                   # use ollama locally
+  redis                    # use in-memory or SQLite
+  celery                   # use asyncio
+  kubernetes               # premature
+  pulumi/terraform         # premature
+  docker                   # only if explicitly needed
+
+## COMPLIANCE POSTURE
+
+- Treat all code as FedRAMP-adjacent: audit logs, least privilege,
+  no secrets in code, data classification headers.
+- Every mutation must be logged to the audit hash-chain.
+- PII fields (contact_email, contact_phone) must be marked for
+  encryption at rest (implement flag, not actual encryption yet).
+- Use NIST 800-53 control families as reference, not as claim.
+- Document what IS implemented vs what is PLANNED. Never conflate.
+
+## GENERATED CODE QUALITY
+
+When the compiler generates platform code:
+1. Every generated file must be syntactically valid Python
+2. Every generated FastAPI route must return a response (not pass/TODO)
+3. Generated tests must be runnable with `pytest`
+4. Generated migrations must be executable against SQLite
+5. Generated app.py must start with `uvicorn platforms.X.app:app`
+
+## GIT CONVENTIONS
+
+- Commit messages: `type: description` (fix, feat, refactor, test, docs, ci)
+- Branch: `main` only until there's a second contributor
+- No force-push on main
+- Every commit should leave tests passing
+
+## WHAT SUCCESS LOOKS LIKE
+
+Gate 1 (Technical Credibility):
+  □ `pip install -e .` succeeds
+  □ `forge compile specs/aureon.platform.yaml` produces runnable code
+  □ Generated code passes its own tests
+  □ Live demo: spec → running API in < 2 minutes
+  □ CI green badge on main
+
+Gate 2 (Market Credibility):
+  □ SAM.gov API returns real opportunities
+  □ Landing page with waitlist captures emails
+  □ 5+ user interviews documented
+
+## ANTI-PATTERNS TO REJECT
+
+- "Let me add Kubernetes support" → No. SQLite + uvicorn.
+- "Let me implement the RSI flywheel" → No. Ship Aureon first.
+- "Let me add another platform spec" → No. Aureon only.
+- "Let me add a React dashboard" → No. Static HTML + vanilla JS.
+- "This needs Redis for caching" → No. In-memory dict or SQLite.
+- "Let me set up Grafana" → No. JSON structured logs to stdout.
+- Aspirational README claims → Rewrite to match actual TRL.
