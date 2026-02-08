@@ -8,7 +8,6 @@ Generated code is STANDALONE: no forge imports, only stdlib + fastapi + pydantic
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 
 from forge.compiler.schema_gen import _entity_table_name
 from forge.compiler.spec_schema import (
@@ -64,7 +63,7 @@ def _generate_list_handler(spec: PlatformSpec, entity: Entity, route: APIRoute) 
         f"async def {_route_function_name(route, 'GET')}(limit: int = 50, offset: int = 0):",
         f'    """List {entity.name} resources."""',
         "    conn = get_db()",
-        f'    rows = conn.execute(',
+        "    rows = conn.execute(",
         f'        "SELECT * FROM {table}{soft} LIMIT ? OFFSET ?",',
         "        (limit, offset)",
         "    ).fetchall()",
@@ -216,7 +215,7 @@ def generate_fastapi_routes(spec: PlatformSpec) -> str:
         "",
         "from ..models import *",
         "",
-        f"router = APIRouter()",
+        "router = APIRouter()",
         f"DB_PATH = {db_path}",
         "",
         "def get_db():",
