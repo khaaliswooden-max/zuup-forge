@@ -33,8 +33,23 @@ If the Git repo root contains more than the app, you can set **Root Directory** 
 
 Then only `zuup-forge/` is built; its `vercel.json` and `index.py` are used and no rewrites are involved.
 
+## Log analysis (404 after first fix)
+
+Vercel logs showed two behaviors:
+
+- **Older deployment** (`dpl_EK9mMuHNuaX4zjA9JDHiVJtn5Fuk`): `"function":"/api"` — requests were correctly routed to `/api`, but there was **no handler** for `/api`, so 404. That matched the missing `api/` implementation.
+- **Newer deployments** (e.g. `dpl_DfWLUe2pmN3xwKba5cn3f6dGnVCQ`): `"function":"/404.html"`, `"type":"static"` — after removing the rewrite, Vercel **did not invoke any Python app** and fell through to the static 404 page.
+
+So framework auto-detection was not running the root `index.py` as a serverless function. The fix is to use an **explicit serverless handler** under `api/` and route all traffic to it.
+
+## Additional fix: explicit API handler
+
+- **`api/index.py`** was added: a serverless handler that adds the correct `sys.path`, imports the FastAPI app from `forge.ui.app`, and wraps it so that when Vercel sends path `/api` or `/api/...` (after rewrite), the path is normalized to `/` and `/...` before calling FastAPI.
+- **Root `vercel.json`** again uses `"rewrites": [{ "source": "/(.*)", "destination": "/api" }]` so every request hits the `/api` serverless function. This time `/api` is implemented by `api/index.py`.
+
 ## After redeploy
 
 1. Push the changes and let Vercel redeploy (or trigger a redeploy from the dashboard).
 2. Open https://zuup-forge.vercel.app/ — you should see the ZUUP FORGE UI.
-3. If you still see 404, check the deployment **Logs** in the Vercel dashboard for Python import or runtime errors.
+3. Favicon 404s (`favicon.ico`, `favicon.png`) may still appear until you add those files under `public/` or handle them in the app; the main page should load.
+4. If you still see 404, check the deployment **Logs** in the Vercel dashboard for Python import or runtime errors.
