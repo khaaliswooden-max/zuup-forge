@@ -1,0 +1,128 @@
+platform:
+  name: aureon
+  display_name: "Aureon™"
+  domain: federal_procurement
+  description: "Planetary-Scale Procurement Substrate"
+  version: "0.1.0"
+  icon: "📋"
+  owners: ["khaaliswooden-max"]
+  tags: ["procurement", "federal", "sled", "govtech"]
+
+compliance:
+  frameworks: [FAR, DFARS, CMMC_L2, FedRAMP_Moderate]
+  data_classification: CUI
+  audit_retention_days: 2555
+  pii_fields_encrypted: true
+  data_residency: ["US"]
+  breach_notification_hours: 72
+  evidence_auto_collect: true
+
+entities:
+  - name: Opportunity
+    description: "A federal contracting opportunity from SAM.gov"
+    fields:
+      - { name: notice_id, type: string, indexed: true }
+      - { name: title, type: string, searchable: true }
+      - { name: agency, type: string, indexed: true }
+      - { name: sub_agency, type: string, required: false }
+      - { name: naics_codes, type: "string[]" }
+      - { name: set_asides, type: "string[]" }
+      - { name: response_deadline, type: datetime }
+      - { name: estimated_value, type: decimal }
+      - { name: place_of_performance, type: string, required: false }
+      - { name: solicitation_type, type: string }
+      - { name: full_text, type: text, searchable: true, vectorize: true }
+      - { name: embedding, type: vector, vector_dimensions: 768 }
+      - { name: source_url, type: string }
+    relations:
+      - { target: Vendor, type: many_to_many, via: OpportunityMatch }
+    soft_delete: true
+    audit_all: true
+
+  - name: Vendor
+    description: "A potential contractor/vendor"
+    fields:
+      - { name: cage_code, type: string, unique: true }
+      - { name: uei, type: string, unique: true }
+      - { name: legal_name, type: string, searchable: true }
+      - { name: dba_name, type: string, searchable: true, required: false }
+      - { name: capabilities, type: "string[]", searchable: true }
+      - { name: naics_codes, type: "string[]" }
+      - { name: certifications, type: "string[]" }
+      - { name: past_performance_score, type: float, required: false }
+      - { name: sam_status, type: string }
+      - { name: contact_email, type: string, pii: true, encrypted_at_rest: true }
+      - { name: hubzone_qualified, type: boolean }
+      - { name: capability_embedding, type: vector, vector_dimensions: 768 }
+    soft_delete: true
+    audit_all: true
+    versioned: true
+
+  - name: OpportunityMatch
+    description: "AI-scored match between opportunity and vendor"
+    fields:
+      - { name: match_score, type: float }
+      - { name: capability_score, type: float }
+      - { name: compliance_score, type: float }
+      - { name: past_performance_score, type: float }
+      - { name: set_aside_eligible, type: boolean }
+      - { name: explanation, type: text }
+      - { name: model_version, type: string }
+      - { name: confidence, type: float }
+    audit_all: true
+
+ai:
+  models:
+    - name: opportunity_scorer
+      type: ranker
+      input: [opportunity_text, vendor_capabilities]
+      output: match_score
+      guardrails: [no_pii_in_scores, explainable_factors]
+      eval_metrics:
+        - { name: ndcg, type: custom, target: 0.85, weight: 2.0 }
+        - { name: latency, type: latency_ms, target: 2000, weight: 1.0 }
+
+  tools:
+    - name: sam_gov_search
+      type: api_integration
+      endpoint: https://api.sam.gov/opportunities/v2/search
+      auth: api_key
+      rate_limit: "100/min"
+
+  guardrails:
+    - name: no_pii_in_scores
+      type: output
+      rule: "no_pii_check(output)"
+      action: block
+
+    - name: explainable_factors
+      type: output
+      rule: "'explanation' in output"
+      action: block
+
+  preference_domains:
+    - { domain: procurement, categories: [rfp_analysis, vendor_matching, compliance_check, proposal_scoring], target_count: 500 }
+
+api:
+  version: v1
+  base_path: /api
+  global_rate_limit: "500/min"
+  docs_enabled: true
+  routes:
+    - { path: /opportunities, methods: [GET, POST], auth: required, response_schema: Opportunity }
+    - { path: "/opportunities/{id}", methods: [GET, PUT, DELETE], auth: required, response_schema: Opportunity }
+    - { path: "/opportunities/{id}/matches", methods: [GET], auth: required, response_schema: OpportunityMatch }
+    - { path: /vendors, methods: [GET, POST], auth: required, response_schema: Vendor }
+    - { path: "/vendors/{id}", methods: [GET, PUT], auth: required, response_schema: Vendor }
+    - { path: /search, methods: [POST], auth: required }
+
+deploy_targets: [dev, staging, production, govcloud]
+
+features:
+  audit_chain: true
+  preference_collection: true
+  compliance_hooks: true
+  observability: true
+  api_versioning: true
+  rate_limiting: true
+  caching: true

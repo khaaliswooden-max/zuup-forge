@@ -1,0 +1,38 @@
+{
+  "platform": "aureon",
+  "version": "0.1.0",
+  "generated_at": "2026-02-08T04:20:58Z",
+  "files": [
+    "platforms/aureon/migrations/001_initial.sql",
+    "platforms/aureon/migrations/001_initial_sqlite.sql",
+    "platforms/aureon/models.py",
+    "platforms/aureon/routes.py",
+    "platforms/aureon/app.py",
+    "platforms/aureon/Dockerfile",
+    "platforms/aureon/.github/workflows/ci.yml"
+  ],
+  "compliance_frameworks": [
+    "FedRAMP_Moderate",
+    "CMMC_L2",
+    "FAR",
+    "DFARS",
+    "SOC2"
+  ],
+  "entities": [
+    "Opportunity",
+    "Vendor",
+    "OpportunityMatch",
+    "Proposal"
+  ],
+  "api_routes": 10,
+  "ai_models": 3,
+  "features": {
+    "audit_chain": true,
+    "preference_collection": true,
+    "compliance_hooks": true,
+    "observability": true,
+    "api_versioning": true,
+    "rate_limiting": true,
+    "caching": true
+  }
+}

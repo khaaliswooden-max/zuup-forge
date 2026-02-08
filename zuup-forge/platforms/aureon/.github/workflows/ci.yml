@@ -1,0 +1,26 @@
+name: Aureon™ CI
+on:
+  push:
+    paths: ['platforms/aureon/**', 'forge/**']
+  pull_request:
+    paths: ['platforms/aureon/**', 'forge/**']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -e ".[dev]"
+      - run: python -m pytest platforms/aureon/tests/ -v --cov
+      - run: ruff check platforms/aureon/
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anchore/scan-action@v3
+        with:
+          path: "platforms/aureon/"
