@@ -23,7 +23,7 @@ ml = ["sentence-transformers>=3.0", "trl>=0.8"]
 forge = "forge.cli.main:main"
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=68", "setuptools.backends"]
 build-backend = "setuptools.backends._legacy:_Backend"
 
 [tool.ruff]
