@@ -186,7 +186,7 @@ class TestAPIGen:
         assert "@router.get" in code
         assert "@router.post" in code
         assert "@router.delete" in code
-        assert "audit_action" in code
+        assert "get_db" in code or "sqlite3" in code
 
 
 # =============================================================================

@@ -1,30 +1,45 @@
-"""
-Vercel serverless handler: forwards all traffic to the FastAPI app.
-Use with vercel.json rewrites: "/(.*)" -> "/api"
-When the request is rewritten to /api, Vercel may pass path as /api or /api/...;
-we strip the /api prefix so the FastAPI app sees / and /...
-"""
-import sys
-from pathlib import Path
-
-# api/index.py lives at <deploy_root>/api/index.py; forge package is at <deploy_root>/forge or <deploy_root>/zuup-forge/forge
-_api_dir = Path(__file__).resolve().parent
-_root = _api_dir.parent
-_deploy_root = _root / "zuup-forge" if (_root / "zuup-forge" / "forge").exists() else _root
-if str(_deploy_root) not in sys.path:
-    sys.path.insert(0, str(_deploy_root))
-
-from forge.ui.app import app as _raw_app
+# -*- coding: utf-8 -*-
+"""Vercel serverless function - Zuup Forge status API."""
+from http.server import BaseHTTPRequestHandler
+import json
+from datetime import datetime, timezone
 
 
-async def app(scope, receive, send):
-    """ASGI app: strip /api prefix when present, then forward to FastAPI."""
-    path = scope.get("path", "") or "/"
-    if path.startswith("/api"):
-        path = path[4:] or "/"
-        scope = dict(scope)
-        scope["path"] = path
-    await _raw_app(scope, receive, send)
+def _json_data(status, data):
+    return (
+        status,
+        {"Content-Type": "application/json", "Access-Control-Allow-Origin": "*"},
+        data,
+    )
 
 
-__all__ = ["app"]
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        path = self.path.split("?")[0]
+        if path in ("/api/health", "/health"):
+            status, headers, data = _json_data(
+                200, {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
+            )
+        elif path in ("/api/status", "/status"):
+            status, headers, data = _json_data(
+                200,
+                {
+                    "forge_version": "0.1.0",
+                    "trl": 3,
+                    "platforms_defined": 1,
+                    "platforms_functional": 0,
+                    "compiler_status": "operational",
+                    "last_compile_test": "see CI badge",
+                    "next_milestone": "Gate 1 - Technical Credibility",
+                },
+            )
+        else:
+            status, headers, data = _json_data(404, {"error": "not found"})
+        self.send_response(status)
+        for k, v in headers.items():
+            self.send_header(k, v)
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode())
+
+    def log_message(self, format, *args):
+        pass

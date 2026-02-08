@@ -7,7 +7,10 @@ Pydantic models, and repository classes.
 
 from __future__ import annotations
 
+import re
+
 from forge.compiler.spec_schema import (
+    Entity,
     EntityField,
     FieldType,
     PlatformSpec,
@@ -50,9 +53,15 @@ SQLITE_TYPE_MAP: dict[FieldType, str] = {
     FieldType.STRING_ARRAY: "TEXT",  # JSON array
     FieldType.INT_ARRAY: "TEXT",
     FieldType.FLOAT_ARRAY: "TEXT",
-    FieldType.VECTOR: "TEXT",  # JSON array fallback
+    FieldType.VECTOR: "BLOB",  # Placeholder; no pgvector in SQLite
     FieldType.BINARY: "BLOB",
 }
+
+
+def _entity_table_name(entity: Entity) -> str:
+    """Convert entity name to SQL table name (snake_case)."""
+    name = entity.name
+    return re.sub(r"(?<!^)(?=[A-Z])", "_", name).lower()
 
 
 def _pg_col(field: EntityField) -> str:
@@ -242,10 +251,10 @@ def generate_sqlite_migration(spec: PlatformSpec) -> str:
         "",
     ]
 
-    # Audit table
+    # Audit table (hash-chain; plan expects name "audit_log")
     if spec.features.get("audit_chain", True):
         lines.extend([
-            f"CREATE TABLE IF NOT EXISTS {spec.platform.name}_audit (",
+            "CREATE TABLE IF NOT EXISTS audit_log (",
             "    id TEXT PRIMARY KEY,",
             "    timestamp TEXT NOT NULL DEFAULT (datetime('now')),",
             "    platform TEXT NOT NULL,",
@@ -260,9 +269,9 @@ def generate_sqlite_migration(spec: PlatformSpec) -> str:
             "",
         ])
 
-    # Entity tables
+    # Entity tables (table name = snake_case entity name only)
     for entity in spec.entities:
-        table_name = f"{spec.platform.name}_{entity.name.lower()}"
+        table_name = _entity_table_name(entity)
         cols = [
             "    id TEXT PRIMARY KEY",
             "    created_at TEXT NOT NULL DEFAULT (datetime('now'))",
@@ -338,32 +347,27 @@ def generate_pydantic_models(spec: PlatformSpec) -> str:
 
         for field in entity.fields:
             py_type = PYTHON_TYPE_MAP[field.type]
-            if not field.required:
-                py_type = f"{py_type} | None"
-
-            field_args = []
-            if field.description:
-                field_args.append(f'description="{field.description}"')
-            if field.min_length is not None:
-                field_args.append(f"min_length={field.min_length}")
-            if field.max_length is not None:
-                field_args.append(f"max_length={field.max_length}")
-
-            if field_args:
-                default = "None" if not field.required else "..."
-                lines.append(
-                    f"    {field.name}: {py_type} = Field({default}, {', '.join(field_args)})"
-                )
+            # Create model: defaults so minimal POST works (plan Step 1.5)
+            if field.type in (FieldType.STRING_ARRAY, FieldType.INT_ARRAY, FieldType.FLOAT_ARRAY):
+                lines.append(f"    {field.name}: {py_type} = Field(default_factory=list)")
+            elif field.type in (FieldType.DATETIME, FieldType.DATE, FieldType.DECIMAL, FieldType.FLOAT):
+                lines.append(f"    {field.name}: {py_type} | None = None")
+            elif field.type == FieldType.VECTOR:
+                lines.append(f"    {field.name}: {py_type} = Field(default_factory=list)")
             elif not field.required:
-                lines.append(f"    {field.name}: {py_type} = None")
+                lines.append(f"    {field.name}: {py_type} | None = None")
             else:
-                lines.append(f"    {field.name}: {py_type}")
+                # Required string/text: allow default "" for convenience
+                if field.type in (FieldType.TEXT, FieldType.STRING):
+                    lines.append(f"    {field.name}: {py_type} = \"\"")
+                else:
+                    lines.append(f"    {field.name}: {py_type}")
 
         lines.extend(["", ""])
 
-        # Full model (with DB fields)
+        # Full model (with DB fields; id as str for SQLite compatibility)
         lines.append(f"class {entity.name}(BaseModel):")
-        lines.append("    id: UUID")
+        lines.append("    id: str")
         lines.append("    created_at: datetime")
         lines.append("    updated_at: datetime")
         if entity.soft_delete:

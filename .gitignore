@@ -1,9 +1,38 @@
+# Python
 __pycache__/
 *.pyc
+*.pyo
 *.egg-info/
-.env
-*.db
-platforms/
 dist/
 build/
+.eggs/
+
+# Generated platforms (re-generate from specs)
+platforms/
+
+# Environment
+.env
+.env.local
+*.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
 .pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Lock files (keep pyproject.toml as source of truth)
+uv.lock
+
+# Compiler test output
+test_output/

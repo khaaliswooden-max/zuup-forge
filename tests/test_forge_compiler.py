@@ -163,7 +163,7 @@ class TestParser:
 class TestSchemaGen:
     def test_pg_migration_contains_tables(self, minimal_spec: PlatformSpec):
         sql = generate_pg_migration(minimal_spec)
-        assert "CREATE TABLE IF NOT EXISTS testplatform_widget" in sql
+        assert "CREATE TABLE IF NOT EXISTS testplatform_widget" in sql  # PG keeps prefix
         assert "title" in sql
         assert "count" in sql
         assert "active" in sql
@@ -180,7 +180,7 @@ class TestSchemaGen:
 
     def test_sqlite_migration_creates_tables(self, minimal_spec: PlatformSpec):
         sql = generate_sqlite_migration(minimal_spec)
-        assert "CREATE TABLE IF NOT EXISTS testplatform_widget" in sql
+        assert "CREATE TABLE IF NOT EXISTS widget" in sql
         assert "PRAGMA journal_mode=WAL" in sql
 
     def test_pydantic_models_generated(self, minimal_spec: PlatformSpec):
@@ -200,9 +200,10 @@ class TestAPIGen:
         code = generate_fastapi_app(minimal_spec)
         assert "FastAPI" in code
         assert "testplatform" in code
-        assert "AuditMiddleware" in code
+        assert "include_router" in code
+        assert "startup" in code or "migration" in code.lower()
 
-    def test_routes_generated_with_auth(self):
+    def test_routes_generated_standalone(self):
         from forge.compiler.spec_schema import APIConfig, APIRoute
 
         spec = PlatformSpec(
@@ -224,9 +225,9 @@ class TestAPIGen:
             ),
         )
         code = generate_fastapi_routes(spec)
-        assert "require_auth" in code
         assert "@router.get" in code
         assert "@router.post" in code
+        assert "get_db" in code or "sqlite3" in code
 
 
 # =============================================================================
@@ -393,7 +394,7 @@ class TestFullPipeline:
         # 4. Generate routes
         routes = generate_fastapi_routes(spec)
         assert "@router.get" in routes
-        assert "require_auth" in routes
+        assert "get_db" in routes or "sqlite3" in routes
 
         # 5. Generate app
         app = generate_fastapi_app(spec)

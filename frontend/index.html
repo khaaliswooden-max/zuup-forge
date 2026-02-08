@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zuup Forge - Declarative Platform Compiler</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Zuup Forge</h1>
+  <p class="tagline">YAML in &rarr; compliance-ready API out.</p>
+  <span class="badge">TRL 3 &middot; Proof of concept</span>
+
+  <div class="status-section">
+    <h2>Status</h2>
+    <div id="status" class="status-grid">
+      <span class="loading">Loading...</span>
+    </div>
+  </div>
+
+  <div class="links">
+    <a href="https://github.com/khaaliswooden-max/zuup-forge" rel="noopener">GitHub</a>
+    <a href="https://github.com/khaaliswooden-max/zuup-forge#quick-start" rel="noopener">Quick start</a>
+  </div>
+
+  <a href="https://github.com/khaaliswooden-max/zuup-forge#quick-start" class="btn">Demo: spec &rarr; API</a>
+
+  <div class="waitlist">
+    <label for="email">Get notified when we hit the next milestone</label>
+    <form action="https://formspree.io/f/YOUR_FORM_ID" method="POST" id="waitlist-form">
+      <input type="email" name="email" id="email" placeholder="you@example.com" required>
+      <input type="hidden" name="_subject" value="Zuup Forge Waitlist">
+      <button type="submit">Join waitlist</button>
+    </form>
+    <p class="disclosure">Replace YOUR_FORM_ID with your Formspree form ID (free tier: formspree.io).</p>
+  </div>
+
+  <p class="disclosure">This is a proof-of-concept. No aspirational claims. Next milestone: Gate 1 &mdash; Technical Credibility.</p>
+
+  <script>
+    (function () {
+      var el = document.getElementById('status');
+      fetch('/api/status')
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function (d) {
+          el.innerHTML =
+            '<div class="status-row"><span>Compiler</span><span class="value ok">' + (d.compiler_status || '—') + '</span></div>' +
+            '<div class="status-row"><span>Version</span><span class="value">' + (d.forge_version || '—') + '</span></div>' +
+            '<div class="status-row"><span>TRL</span><span class="value">' + (d.trl != null ? d.trl : '—') + '</span></div>' +
+            '<div class="status-row"><span>Next</span><span class="value">' + (d.next_milestone || '—') + '</span></div>';
+        })
+        .catch(function () {
+          el.innerHTML = '<span class="error">Could not load status. Check /api/status.</span>';
+        });
+    })();
+  </script>
+</body>
+</html>

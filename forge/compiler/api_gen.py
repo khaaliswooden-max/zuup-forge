@@ -1,13 +1,23 @@
 """
 API Route Generator
 
-Compiles PlatformSpec API configuration into FastAPI route handlers,
-middleware setup, and OpenAPI documentation.
+Compiles PlatformSpec API configuration into FastAPI route handlers.
+Generated code is STANDALONE: no forge imports, only stdlib + fastapi + pydantic + sqlite3.
 """
 
 from __future__ import annotations
 
-from forge.compiler.spec_schema import APIRoute, Entity, PlatformSpec
+import json
+from datetime import datetime, timezone
+
+from forge.compiler.schema_gen import _entity_table_name
+from forge.compiler.spec_schema import (
+    APIRoute,
+    Entity,
+    EntityField,
+    FieldType,
+    PlatformSpec,
+)
 
 
 def _route_function_name(route: APIRoute, method: str) -> str:
@@ -23,7 +33,6 @@ def _find_entity_for_route(route: APIRoute, entities: list[Entity]) -> Entity | 
         for entity in entities:
             if entity.name == schema_name:
                 return entity
-    # Fallback: match by first path segment
     first_segment = route.path.strip("/").split("/")[0]
     for entity in entities:
         if entity.name.lower() == first_segment.lower():
@@ -33,217 +42,289 @@ def _find_entity_for_route(route: APIRoute, entities: list[Entity]) -> Entity | 
     return None
 
 
-def generate_fastapi_routes(spec: PlatformSpec) -> str:
-    """Generate FastAPI route handlers from platform spec."""
-    lines = [
-        '"""',
-        f"Auto-generated API routes for {spec.platform.display_name}",
-        f"Platform: {spec.platform.name} v{spec.platform.version}",
+def _field_serialize_for_db(field: EntityField, value: object) -> object:
+    """Serialize a field value for SQLite (JSON for lists, ISO for datetime)."""
+    if value is None:
+        return None
+    if field.type in (FieldType.STRING_ARRAY, FieldType.INT_ARRAY, FieldType.FLOAT_ARRAY):
+        return json.dumps(value) if isinstance(value, (list, tuple)) else value
+    if field.type in (FieldType.DATETIME, FieldType.DATE):
+        if hasattr(value, "isoformat"):
+            return value.isoformat()
+        return value
+    return value
+
+
+def _generate_list_handler(spec: PlatformSpec, entity: Entity, route: APIRoute) -> list[str]:
+    """Generate GET list handler (no path params)."""
+    table = _entity_table_name(entity)
+    soft = " WHERE deleted_at IS NULL" if entity.soft_delete else ""
+    return [
+        f'@router.get("{route.path}")',
+        f"async def {_route_function_name(route, 'GET')}(limit: int = 50, offset: int = 0):",
+        f'    """List {entity.name} resources."""',
+        "    conn = get_db()",
+        f'    rows = conn.execute(',
+        f'        "SELECT * FROM {table}{soft} LIMIT ? OFFSET ?",',
+        "        (limit, offset)",
+        "    ).fetchall()",
+        f'    total = conn.execute("SELECT COUNT(*) FROM {table}{soft}").fetchone()[0]',
+        "    conn.close()",
+        '    return {"items": [dict(r) for r in rows], "total": total}',
         "",
-        "DO NOT EDIT DIRECTLY — regenerate with `forge generate`.",
-        "Add domain logic in the services/ directory.",
+        "",
+    ]
+
+
+def _generate_stub_list_handler(route: APIRoute, method: str, path_params: list[str]) -> list[str]:
+    """Generate stub for nested GET (e.g. /opportunities/{id}/matches)."""
+    params = ", ".join(f"{p}: str" for p in path_params) + ", limit: int = 50, offset: int = 0" if path_params else "limit: int = 50, offset: int = 0"
+    return [
+        f'@router.get("{route.path}")',
+        f"async def {_route_function_name(route, method)}({params}):",
+        '    return {"items": [], "total": 0}',
+        "",
+        "",
+    ]
+
+
+def _generate_get_by_id_handler(spec: PlatformSpec, entity: Entity, route: APIRoute) -> list[str]:
+    """Generate GET by id handler."""
+    table = _entity_table_name(entity)
+    soft = " AND deleted_at IS NULL" if entity.soft_delete else ""
+    return [
+        f'@router.get("{route.path}")',
+        f"async def {_route_function_name(route, 'GET')}(id: str):",
+        f'    """Get {entity.name} by ID."""',
+        "    conn = get_db()",
+        f'    row = conn.execute("SELECT * FROM {table} WHERE id = ?{soft}", (id,)).fetchone()',
+        "    conn.close()",
+        "    if row is None:",
+        "        raise HTTPException(404, detail='Not found')",
+        "    return dict(row)",
+        "",
+        "",
+    ]
+
+
+def _generate_create_handler(spec: PlatformSpec, entity: Entity, route: APIRoute) -> list[str]:
+    """Generate POST create handler."""
+    table = _entity_table_name(entity)
+    cols = ["id", "created_at", "updated_at"]
+    if entity.soft_delete:
+        cols.append("deleted_at")
+    cols.extend([f.name for f in entity.fields])
+    placeholders = ", ".join("?" for _ in cols)
+    col_str = ", ".join(cols)
+    lines = [
+        f'@router.post("{route.path}", status_code=201)',
+        f"async def {_route_function_name(route, 'POST')}(body: {entity.name}Create):",
+        f'    """Create {entity.name}."""',
+        "    conn = get_db()",
+        "    now = datetime.now(timezone.utc).isoformat()",
+        "    row_id = str(__import__('uuid').uuid4())",
+        "    data = body.model_dump()",
+        "    values = [row_id, now, now]",
+    ]
+    if entity.soft_delete:
+        lines.append("    values.append(None)")
+    for f in entity.fields:
+        lines.append(f"    values.append(_field_val(data.get('{f.name}'), {f.type.value!r}))")
+    lines.extend([
+        f'    conn.execute("INSERT INTO {table} ({col_str}) VALUES ({placeholders})", values)',
+        "    conn.commit()",
+        "    conn.close()",
+        "    return {'id': row_id, 'created_at': now}",
+        "",
+        "",
+    ])
+    return lines
+
+
+def _generate_update_handler(spec: PlatformSpec, entity: Entity, route: APIRoute) -> list[str]:
+    """Generate PUT update handler (only set provided fields)."""
+    table = _entity_table_name(entity)
+    lines = [
+        f'@router.put("{route.path}")',
+        f"async def {_route_function_name(route, 'PUT')}(id: str, body: {entity.name}Update):",
+        f'    """Update {entity.name}."""',
+        "    conn = get_db()",
+        "    data = body.model_dump(exclude_unset=True)",
+        "    if not data:",
+        "        conn.close()",
+        "        raise HTTPException(400, detail='No fields to update')",
+        "    now = datetime.now(timezone.utc).isoformat()",
+        "    data['updated_at'] = now",
+        "    set_str = ', '.join(f'{k} = ?' for k in data)",
+        "    values = [_field_val(data[k]) for k in data]",
+        "    values.append(id)",
+        f'    conn.execute(f"UPDATE {table} SET {{set_str}} WHERE id = ?", values)',
+        "    conn.commit()",
+        "    conn.close()",
+        "    return {'status': 'updated'}",
+        "",
+        "",
+    ]
+    return lines
+
+
+def _generate_delete_handler(spec: PlatformSpec, entity: Entity, route: APIRoute) -> list[str]:
+    """Generate DELETE (soft) handler."""
+    table = _entity_table_name(entity)
+    if not entity.soft_delete:
+        return [
+            f'@router.delete("{route.path}", status_code=204)',
+            f"async def {_route_function_name(route, 'DELETE')}(id: str):",
+            "    raise HTTPException(501, detail='Hard delete not implemented')",
+            "",
+            "",
+        ]
+    return [
+        f'@router.delete("{route.path}", status_code=204)',
+        f"async def {_route_function_name(route, 'DELETE')}(id: str):",
+        f'    """Soft delete {entity.name}."""',
+        "    conn = get_db()",
+        "    now = datetime.now(timezone.utc).isoformat()",
+        f'    conn.execute("UPDATE {table} SET deleted_at = ? WHERE id = ?", (now, id))',
+        "    conn.commit()",
+        "    conn.close()",
+        "",
+        "",
+    ]
+
+
+def generate_fastapi_routes(spec: PlatformSpec) -> str:
+    """Generate standalone FastAPI route handlers with SQLite CRUD (no forge imports)."""
+    platform_name = spec.platform.name
+    db_path = f'"{platform_name}.db"'
+    display_name = spec.platform.display_name.encode("ascii", "replace").decode("ascii")
+    lines = [
+        "# -*- coding: utf-8 -*-",
+        '"""',
+        f"Auto-generated API routes for {display_name}",
+        f"Platform: {platform_name} v{spec.platform.version}",
+        "Standalone: no forge imports. Regenerate with `forge compile`.",
         '"""',
         "",
         "from __future__ import annotations",
         "",
-        "from typing import Any",
-        "from uuid import UUID",
+        "import json",
+        "import sqlite3",
+        "from datetime import datetime, timezone",
         "",
-        "from fastapi import APIRouter, Depends, HTTPException, Query, Request",
-        "from pydantic import BaseModel",
+        "from fastapi import APIRouter, HTTPException",
         "",
-        "from forge.substrate.zuup_auth.middleware import require_auth, ZuupPrincipal",
-        "from forge.substrate.zuup_audit.middleware import audit_action",
-        "from forge.substrate.zuup_observe.tracing import traced",
+        "from ..models import *",
         "",
-        f"from platforms.{spec.platform.name}.models import *",
-        f"from platforms.{spec.platform.name}.services import *",
+        f"router = APIRouter()",
+        f"DB_PATH = {db_path}",
         "",
+        "def get_db():",
+        "    conn = sqlite3.connect(DB_PATH)",
+        "    conn.row_factory = sqlite3.Row",
+        "    return conn",
         "",
-        f'router = APIRouter(prefix="/{spec.api.base_path.strip("/")}/{spec.api.version}")',
+        "def _field_val(v, ft=None):",
+        "    if v is None: return None",
+        '    if ft and ft in ("string[]", "int[]", "float[]"): return json.dumps(v) if isinstance(v, (list, tuple)) else v',
+        '    if ft and ft in ("datetime", "date"): return v.isoformat() if hasattr(v, "isoformat") else v',
+        "    if isinstance(v, (list, tuple)): return json.dumps(v)",
+        "    if hasattr(v, \"isoformat\"): return v.isoformat()",
+        "    return v",
         "",
         "",
     ]
 
     for route in spec.api.routes:
         entity = _find_entity_for_route(route, spec.entities)
-        entity_name = entity.name if entity else "Resource"
+        path_params = []
+        path = route.path
+        while "{" in path:
+            start = path.index("{")
+            end = path.index("}")
+            path_params.append(path[start + 1 : end])
+            path = path[end + 1 :]
+
+        if not entity:
+            # e.g. /search
+            func_name = _route_function_name(route, "POST" if "POST" in route.methods else "GET")
+            lines.extend([
+                f'@router.post("{route.path}")' if "POST" in route.methods else f'@router.get("{route.path}")',
+                f"async def {func_name}():",
+                '    return {"status": "not_implemented", "message": "Custom route"}',
+                "",
+                "",
+            ])
+            continue
 
         for method in route.methods:
-            func_name = _route_function_name(route, method)
-
-            # Determine auth dependency
-            auth_dep = ""
-            if route.auth == "required":
-                auth_dep = ", principal: ZuupPrincipal = Depends(require_auth)"
-            elif route.auth == "optional":
-                auth_dep = ", principal: ZuupPrincipal | None = Depends(require_auth)"
-
-            # Detect path parameters
-            path_params = []
-            path = route.path
-            while "{" in path:
-                start = path.index("{")
-                end = path.index("}")
-                param = path[start + 1:end]
-                path_params.append(param)
-                path = path[end + 1:]
-
-            param_str = ", ".join(f"{p}: str" for p in path_params)
-            if param_str:
-                param_str = ", " + param_str
-
+            # Nested resource e.g. /opportunities/{id}/matches -> stub
+            path_segments = route.path.strip("/").split("/")
             if method == "GET" and not path_params:
-                # List endpoint
-                lines.extend([
-                    f'@router.get("{route.path}")',
-                    "@traced",
-                    f"@audit_action(platform=\"{spec.platform.name}\", action=\"list_{entity_name.lower()}\")",
-                    f"async def {func_name}(",
-                    f"    request: Request{auth_dep},",
-                    "    offset: int = Query(0, ge=0),",
-                    "    limit: int = Query(50, ge=1, le=200),",
-                    ") -> dict[str, Any]:",
-                    f'    """List {entity_name} resources."""',
-                    f"    # TODO: Implement in services/{entity_name.lower()}_service.py",
-                    "    return {",
-                    '        "items": [],',
-                    '        "total": 0,',
-                    '        "offset": offset,',
-                    '        "limit": limit,',
-                    "    }",
-                    "",
-                    "",
-                ])
-
+                lines.extend(_generate_list_handler(spec, entity, route))
+            elif method == "GET" and path_params and len(path_segments) > 2:
+                lines.extend(_generate_stub_list_handler(route, method, path_params))
             elif method == "GET" and path_params:
-                # Get by ID endpoint
-                lines.extend([
-                    f'@router.get("{route.path}")',
-                    "@traced",
-                    f"@audit_action(platform=\"{spec.platform.name}\", action=\"get_{entity_name.lower()}\")",
-                    f"async def {func_name}(",
-                    f"    request: Request{param_str}{auth_dep},",
-                    ") -> dict[str, Any]:",
-                    f'    """Get {entity_name} by ID."""',
-                    "    # TODO: Implement lookup",
-                    "    raise HTTPException(404, detail=\"Not found\")",
-                    "",
-                    "",
-                ])
-
+                lines.extend(_generate_get_by_id_handler(spec, entity, route))
             elif method == "POST":
-                # Create endpoint
-                lines.extend([
-                    f'@router.post("{route.path}", status_code=201)',
-                    "@traced",
-                    f"@audit_action(platform=\"{spec.platform.name}\", action=\"create_{entity_name.lower()}\")",
-                    f"async def {func_name}(",
-                    "    request: Request,",
-                    f"    body: {entity_name}Create{auth_dep},",
-                    ") -> dict[str, Any]:",
-                    f'    """Create {entity_name}."""',
-                    "    # TODO: Implement creation",
-                    "    return {\"id\": \"placeholder\", \"status\": \"created\"}",
-                    "",
-                    "",
-                ])
-
-            elif method in ("PUT", "PATCH"):
-                # Update endpoint
-                lines.extend([
-                    f'@router.{method.lower()}("{route.path}")',
-                    "@traced",
-                    f"@audit_action(platform=\"{spec.platform.name}\", action=\"update_{entity_name.lower()}\")",
-                    f"async def {func_name}(",
-                    f"    request: Request{param_str},",
-                    f"    body: {entity_name}Update{auth_dep},",
-                    ") -> dict[str, Any]:",
-                    f'    """Update {entity_name}."""',
-                    "    # TODO: Implement update",
-                    "    return {\"status\": \"updated\"}",
-                    "",
-                    "",
-                ])
-
+                lines.extend(_generate_create_handler(spec, entity, route))
+            elif method == "PUT":
+                lines.extend(_generate_update_handler(spec, entity, route))
             elif method == "DELETE":
-                # Delete endpoint (soft by default)
-                lines.extend([
-                    f'@router.delete("{route.path}", status_code=204)',
-                    "@traced",
-                    f"@audit_action(platform=\"{spec.platform.name}\", action=\"delete_{entity_name.lower()}\")",
-                    f"async def {func_name}(",
-                    f"    request: Request{param_str}{auth_dep},",
-                    ") -> None:",
-                    f'    """Delete {entity_name} (soft delete)."""',
-                    "    # TODO: Implement soft delete",
-                    "    pass",
-                    "",
-                    "",
-                ])
+                lines.extend(_generate_delete_handler(spec, entity, route))
+            elif method == "PATCH":
+                lines.extend(_generate_update_handler(spec, entity, route))
 
     return "\n".join(lines)
 
 
 def generate_fastapi_app(spec: PlatformSpec) -> str:
-    """Generate the main FastAPI application file."""
-    return f'''"""
-{spec.platform.display_name} — FastAPI Application
-Platform: {spec.platform.name} v{spec.platform.version}
-Domain: {spec.platform.domain}
-
-Auto-generated by Zuup Forge. Domain logic goes in services/.
+    """Generate standalone FastAPI app: CORS, health, ready, startup migration, no forge imports."""
+    platform_name = spec.platform.name
+    # Use ASCII-safe display name for generated docstring (avoid encoding issues on Windows)
+    display_name = spec.platform.display_name.encode("ascii", "replace").decode("ascii")
+    return f'''# -*- coding: utf-8 -*-
+"""
+{display_name} - Auto-generated by Zuup Forge v0.1.0
+Standalone: no forge imports. Regenerate with `forge compile`.
 """
 
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+import sqlite3
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from forge.substrate.zuup_audit.middleware import AuditMiddleware
-from forge.substrate.zuup_observe.tracing import setup_tracing
-from forge.substrate.zuup_observe.health import health_router
-from forge.substrate.zuup_gateway.rate_limit import RateLimitMiddleware
-from forge.substrate.zuup_gateway.versioning import VersionMiddleware
-
-from platforms.{spec.platform.name}.routes import router as api_router
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifecycle: startup and shutdown."""
-    # Startup
-    setup_tracing(service_name="{spec.platform.name}")
-    # TODO: Initialize database connections, caches, model loading
-    yield
-    # Shutdown
-    # TODO: Clean up connections
-
+from .routes import router
 
 app = FastAPI(
-    title="{spec.platform.display_name}",
-    description="{spec.platform.description}",
+    title="{display_name}",
     version="{spec.platform.version}",
-    lifespan=lifespan,
-    docs_url="/docs" if {spec.api.docs_enabled} else None,
-    redoc_url="/redoc" if {spec.api.docs_enabled} else None,
+    description="{spec.platform.description}",
 )
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# Middleware (order matters: outermost first)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins={spec.api.cors_origins},
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-app.add_middleware(RateLimitMiddleware, rate="{spec.api.global_rate_limit}")
-app.add_middleware(AuditMiddleware, platform="{spec.platform.name}")
-app.add_middleware(VersionMiddleware, current_version="{spec.api.version}")
 
-# Routes
-app.include_router(api_router)
-app.include_router(health_router)
+@app.on_event("startup")
+async def startup():
+    migration_path = Path(__file__).parent / "migrations" / "001_initial_sqlite.sql"
+    if migration_path.exists():
+        conn = sqlite3.connect("{platform_name}.db")
+        conn.executescript(migration_path.read_text())
+        conn.close()
+
+
+@app.get("/health")
+async def health():
+    return {{"status": "ok", "platform": "{platform_name}", "version": "{spec.platform.version}"}}
+
+
+@app.get("/ready")
+async def ready():
+    return {{"status": "ready"}}
+
+
+app.include_router(router, prefix="/api/v1")
 '''
