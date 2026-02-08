@@ -28,6 +28,16 @@ def cmd_dev(args):
     import subprocess
     subprocess.run([sys.executable, "-m", "uvicorn", f"platforms.{args.platform}.app:app", "--reload", "--port", "8000"])
 
+
+def cmd_ui(args):
+    import subprocess
+    subprocess.run([
+        sys.executable, "-m", "uvicorn", "forge.ui.app:app",
+        "--reload" if getattr(args, "reload", False) else "--no-reload",
+        "--port", str(getattr(args, "port", "8765")),
+    ])
+
+
 def main():
     parser = argparse.ArgumentParser(prog="forge", description="Zuup Forge")
     sub = parser.add_subparsers(dest="command")
@@ -36,9 +46,11 @@ def main():
     p = sub.add_parser("generate"); p.add_argument("platform", nargs="?")
     p = sub.add_parser("dev"); p.add_argument("platform")
     p = sub.add_parser("eval"); p.add_argument("platform"); p.add_argument("--suite", default="default")
+    p = sub.add_parser("ui"); p.add_argument("--port", default="8765"); p.add_argument("--reload", action="store_true")
 
     args = parser.parse_args()
-    {"init": cmd_init, "generate": cmd_generate, "dev": cmd_dev}.get(args.command, lambda _: parser.print_help())(args)
+    commands = {"init": cmd_init, "generate": cmd_generate, "dev": cmd_dev, "ui": cmd_ui}
+    commands.get(args.command, lambda _: parser.print_help())(args)
 
 if __name__ == "__main__":
     main()
