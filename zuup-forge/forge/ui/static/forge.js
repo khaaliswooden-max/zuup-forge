@@ -33,15 +33,28 @@ async function loadPlatforms() {
       .map(
         (p) => `
       <div class="platform-card" data-spec="${p.name}">
-        <div class="name">${escapeHtml(p.display_name || p.name)}</div>
-        <div class="domain">${escapeHtml(p.domain || '-')}</div>
-        <div class="desc">${escapeHtml(p.description || '')}</div>
+        <div class="platform-card-main">
+          <div class="name">${escapeHtml(p.display_name || p.name)}</div>
+          <div class="domain">${escapeHtml(p.domain || '-')}</div>
+          <div class="desc">${escapeHtml(p.description || '')}</div>
+        </div>
+        <div class="platform-card-actions">
+          <a href="#" class="btn-deploy" data-platform="${p.name}" title="Deploy ${escapeHtml(p.display_name || p.name)}">Deploy</a>
+        </div>
       </div>
     `
       )
       .join('');
     document.querySelectorAll('.platform-card').forEach((card) => {
-      card.addEventListener('click', () => loadSpec(card.dataset.spec));
+      const main = card.querySelector('.platform-card-main');
+      if (main) main.addEventListener('click', () => loadSpec(card.dataset.spec));
+    });
+    document.querySelectorAll('.btn-deploy').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openDeployModal(btn.dataset.platform);
+      });
     });
   } catch (e) {
     el.innerHTML = '<p class="muted">Could not load platforms. Is the server running?</p>';
@@ -87,4 +100,46 @@ function escapeHtml(s) {
   const div = document.createElement('div');
   div.textContent = s;
   return div.innerHTML;
+}
+
+async function openDeployModal(platform) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'deploy-modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-frame">
+      <div class="modal-header">┌─ DEPLOY: ${escapeHtml(platform)} ──────────────────────────┐</div>
+      <div class="modal-body">
+        <p class="muted">Loading deploy options...</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-close" id="deploy-modal-close">Close</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay || e.target.id === 'deploy-modal-close') overlay.remove();
+  });
+  try {
+    const res = await fetch(`/api/deploy/${platform}`);
+    const data = await res.json();
+    if (!res.ok) {
+      overlay.querySelector('.modal-body').innerHTML =
+        `<p class="error">${escapeHtml(data.error || 'Failed to load deploy info')}</p>`;
+      return;
+    }
+    const d = data.deploy || {};
+    overlay.querySelector('.modal-body').innerHTML = `
+      <p>Deploy <strong>${escapeHtml(platform)}</strong> to:</p>
+      <ul class="deploy-options">
+        <li><a href="${d.render?.url || '#'}" target="_blank" rel="noopener">Render</a> — ${escapeHtml(d.render?.instructions || '')}</li>
+        <li><a href="${d.railway?.url || '#'}" target="_blank" rel="noopener">Railway</a> — ${escapeHtml(d.railway?.instructions || '')}</li>
+      </ul>
+      <p class="muted" style="margin-top:1em;">Ensure render.yaml is at repo root for Render one-click deploy.</p>
+    `;
+  } catch (_) {
+    overlay.querySelector('.modal-body').innerHTML =
+      '<p class="error">Could not load deploy options. Check server connection.</p>';
+  }
 }

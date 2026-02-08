@@ -103,4 +103,28 @@ async def api_version():
     return {"version": "zuup-forge 0.1.0"}
 
 
+@app.get("/api/deploy/{platform}")
+async def api_deploy(platform: str):
+    """Return deployment URLs and instructions for a platform."""
+    if ".." in platform or "/" in platform or "\\" in platform:
+        return JSONResponse({"error": "Invalid platform name"}, status_code=400)
+    platforms_dir = PROJECT_ROOT / "platforms"
+    if not (platforms_dir / platform).exists():
+        return JSONResponse({"error": f"Platform not found: {platform}"}, status_code=404)
+    # Deploy URLs (user connects repo; Render uses render.yaml at repo root)
+    return {
+        "platform": platform,
+        "deploy": {
+            "render": {
+                "url": "https://dashboard.render.com/select-repo?type=blueprint",
+                "instructions": "Connect your GitHub repo. Ensure render.yaml is at repo root. Set Root Directory to zuup-forge if prompted.",
+            },
+            "railway": {
+                "url": "https://railway.app/new",
+                "instructions": "New Project → Deploy from GitHub → select zuup-forge. Set Root Directory to zuup-forge. Use platforms/aureon/Dockerfile.",
+            },
+        },
+    }
+
+
 # Static files: served from public/static/ by Vercel CDN (see Vercel docs — do not mount here)
