@@ -7,11 +7,9 @@ Takes a YAML spec → produces a complete, runnable platform.
 
 from __future__ import annotations
 
-import shutil
 from pathlib import Path
 
 from forge.compiler.api_gen import generate_fastapi_app, generate_fastapi_routes
-from forge.compiler.parser import load_spec
 from forge.compiler.schema_gen import (
     generate_pg_migration,
     generate_pydantic_models,
@@ -197,13 +195,16 @@ def _generate_tests(spec: PlatformSpec) -> str:
 
     for route in spec.api.routes:
         for method in route.methods:
-            test_name = f"test_{method.lower()}_{route.path.strip('/').replace('/', '_').replace('{', '').replace('}', '')}"
+            path_slug = route.path.strip("/").replace("/", "_").replace("{", "").replace("}", "")
+            test_name = f"test_{method.lower()}_{path_slug}"
             if method == "GET":
                 path = route.path.replace("{id}", "test-id")
+                base = spec.api.base_path.strip("/")
+                url_path = f'"/{base}/{spec.api.version}{path}"'
                 lines.extend([
                     f"def {test_name}():",
-                    f'    resp = client.get("/{spec.api.base_path.strip("/")}/{spec.api.version}{path}")',
-                    f"    assert resp.status_code in (200, 401, 404)",
+                    f"    resp = client.get({url_path})",
+                    "    assert resp.status_code in (200, 401, 404)",
                     "",
                 ])
 

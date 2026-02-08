@@ -32,10 +32,11 @@ exclude = ["api*", "public*"]
 
 [tool.ruff]
 target-version = "py311"
-line-length = 100
+line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM"]
+ignore = ["N999"]  # project name zuup-forge is intentional
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

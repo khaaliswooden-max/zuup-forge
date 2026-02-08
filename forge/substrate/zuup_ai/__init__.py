@@ -14,11 +14,15 @@ versioned, and evaluable.
 
 from __future__ import annotations
 
-import hashlib, json, re, time
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Callable
+import hashlib
+import re
+import time
+from collections.abc import Callable
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 from uuid import uuid4
+
 from pydantic import BaseModel, Field
 
 from forge.substrate.zuup_observe import get_logger, metrics
@@ -30,7 +34,7 @@ logger = get_logger("ai_orchestrator")
 # Models
 # =============================================================================
 
-class ToolCallStatus(str, Enum):
+class ToolCallStatus(StrEnum):
     PENDING = "pending"
     APPROVED = "approved"
     EXECUTED = "executed"
@@ -70,7 +74,7 @@ class LLMResponse(BaseModel):
     usage: dict[str, int] = Field(default_factory=dict)
     latency_ms: float
     guardrail_flags: list[str] = Field(default_factory=list)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class PreferenceSignal(BaseModel):
@@ -84,7 +88,7 @@ class PreferenceSignal(BaseModel):
     rejected: str | None = None
     score: float | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 # =============================================================================
@@ -154,7 +158,7 @@ class PromptTemplate(BaseModel):
     variables: list[str]
     platform: str
     description: str = ""
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     def render(self, **kwargs: Any) -> str:
         result = self.template

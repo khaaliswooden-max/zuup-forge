@@ -24,7 +24,7 @@ class SpecParseError(Exception):
         self.errors = errors
         msg = f"Failed to parse {spec_path}:\n"
         for err in errors:
-            loc = " → ".join(str(l) for l in err.get("loc", []))
+            loc = " → ".join(str(part) for part in err.get("loc", []))
             msg += f"  [{loc}] {err['msg']}\n"
         super().__init__(msg)
 

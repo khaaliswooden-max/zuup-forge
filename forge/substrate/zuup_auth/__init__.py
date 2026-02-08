@@ -16,18 +16,17 @@ from __future__ import annotations
 import hashlib
 import hmac
 import time
-from datetime import datetime, timezone
-from enum import Enum
+from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
-
 
 # =============================================================================
 # Principal Model
 # =============================================================================
 
-class PrincipalType(str, Enum):
+class PrincipalType(StrEnum):
     USER = "user"
     SERVICE = "service"
     SYSTEM = "system"
@@ -49,7 +48,7 @@ class ZuupPrincipal(BaseModel):
     roles: list[str] = Field(default_factory=list)
     permissions: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
-    authenticated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    authenticated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     token_hash: str | None = None  # Hash of the auth token for audit
 
     def has_role(self, role: str) -> bool:
@@ -242,7 +241,7 @@ def check_permission(
     """Check if a principal has permission to perform an action."""
     # Direct permission check
     perm_key = f"{platform}:{resource}:{action}"
-    if perm_key in principal.permissions or f"*:*:*" in principal.permissions:
+    if perm_key in principal.permissions or "*:*:*" in principal.permissions:
         return True
 
     # Role-based check

@@ -1,10 +1,13 @@
 """Zuup Gateway — Rate limiting, versioning, CORS."""
 from __future__ import annotations
+
 import time
 from collections import defaultdict
+
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
+
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app, rate: str = "1000/min"):

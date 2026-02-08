@@ -33,7 +33,7 @@ def configure_auth(config: JWTConfig) -> None:
 
 async def get_principal(
     request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Security(bearer_scheme),  # noqa: B008
 ) -> ZuupPrincipal:
     """
     Extract principal from request.
@@ -50,8 +50,8 @@ async def get_principal(
             principal = claims_to_principal(claims)
             request.state.principal = principal
             return principal
-        except ValueError:
-            raise HTTPException(401, detail="Invalid or expired token")
+        except ValueError as err:
+            raise HTTPException(401, detail="Invalid or expired token") from err
 
     # Try API key
     api_key = request.headers.get("X-API-Key")
@@ -73,7 +73,7 @@ async def get_principal(
 
 
 async def require_auth(
-    principal: ZuupPrincipal = Depends(get_principal),
+    principal: ZuupPrincipal = Depends(get_principal),  # noqa: B008
 ) -> ZuupPrincipal:
     """Dependency that requires authentication (rejects anonymous)."""
     if principal.type == "anonymous":
@@ -83,7 +83,7 @@ async def require_auth(
 
 async def require_role(role: str):
     """Factory for role-checking dependencies."""
-    async def _check(principal: ZuupPrincipal = Depends(require_auth)):
+    async def _check(principal: ZuupPrincipal = Depends(require_auth)):  # noqa: B008
         if not principal.has_role(role):
             raise HTTPException(403, detail=f"Role '{role}' required")
         return principal
@@ -92,7 +92,7 @@ async def require_role(role: str):
 
 async def require_platform(platform: str):
     """Factory for platform-access-checking dependencies."""
-    async def _check(principal: ZuupPrincipal = Depends(require_auth)):
+    async def _check(principal: ZuupPrincipal = Depends(require_auth)):  # noqa: B008
         if not principal.can_access_platform(platform):
             raise HTTPException(403, detail=f"Access to platform '{platform}' denied")
         return principal

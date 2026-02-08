@@ -3,26 +3,40 @@ Forge Core Tests — Spec parsing, schema gen, audit chain, auth, guardrails.
 """
 
 import json
-import tempfile
 from pathlib import Path
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
+from forge.compiler.api_gen import generate_fastapi_routes
+from forge.compiler.parser import load_spec
+from forge.compiler.schema_gen import (
+    generate_pg_migration,
+    generate_pydantic_models,
+    generate_sqlite_migration,
+)
 from forge.compiler.spec_schema import (
-    AIConfig, APIConfig, APIRoute, ComplianceConfig, ComplianceFramework,
-    DataClassification, Entity, EntityField, FieldType, PlatformMetadata,
+    APIConfig,
+    APIRoute,
+    ComplianceConfig,
+    ComplianceFramework,
+    DataClassification,
+    Entity,
+    EntityField,
+    FieldType,
+    PlatformMetadata,
     PlatformSpec,
 )
-from forge.compiler.parser import load_spec, SpecParseError
-from forge.compiler.schema_gen import generate_pg_migration, generate_sqlite_migration, generate_pydantic_models
-from forge.compiler.api_gen import generate_fastapi_routes
+from forge.substrate.zuup_ai import PromptTemplate, guardrails, prompt_registry
 from forge.substrate.zuup_audit import AuditEntry, SQLiteAuditStore
 from forge.substrate.zuup_auth import (
-    ZuupPrincipal, PrincipalType, check_permission, generate_api_key, APIKeyConfig,
+    APIKeyConfig,
+    PrincipalType,
+    ZuupPrincipal,
+    check_permission,
+    generate_api_key,
 )
-from forge.substrate.zuup_ai import guardrails, PromptTemplate, prompt_registry
-
 
 # =============================================================================
 # Fixtures
@@ -110,9 +124,11 @@ class TestSpecSchema:
         assert not spec.requires_govcloud()
 
     def test_invalid_platform_name_rejected(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             PlatformSpec(
-                platform=PlatformMetadata(name="invalid-name", display_name="X", domain="x"),
+                platform=PlatformMetadata(
+                    name="invalid-name", display_name="X", domain="x"
+                ),
             )
 
 

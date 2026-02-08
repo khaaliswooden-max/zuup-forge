@@ -9,25 +9,25 @@ from pathlib import Path
 
 import pytest
 import yaml
+from pydantic import ValidationError
 
-from forge.compiler.parser import load_spec, SpecParseError
+from forge.compiler.api_gen import generate_fastapi_app, generate_fastapi_routes
+from forge.compiler.parser import SpecParseError, load_spec
+from forge.compiler.schema_gen import (
+    generate_pg_migration,
+    generate_pydantic_models,
+    generate_sqlite_migration,
+)
 from forge.compiler.spec_schema import (
-    PlatformSpec,
-    PlatformMetadata,
     ComplianceConfig,
     ComplianceFramework,
     DataClassification,
     Entity,
     EntityField,
     FieldType,
+    PlatformMetadata,
+    PlatformSpec,
 )
-from forge.compiler.schema_gen import (
-    generate_pg_migration,
-    generate_sqlite_migration,
-    generate_pydantic_models,
-)
-from forge.compiler.api_gen import generate_fastapi_routes, generate_fastapi_app
-
 
 # =============================================================================
 # Fixtures
@@ -79,7 +79,7 @@ class TestPlatformSpec:
         assert minimal_spec.entities[0].name == "Widget"
 
     def test_invalid_platform_name(self):
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             PlatformSpec(
                 platform=PlatformMetadata(
                     name="invalid-name",  # hyphens not allowed
@@ -251,8 +251,9 @@ class TestAuditChain:
         assert hash1 == hash2
 
     def test_audit_chain_integrity(self):
-        from forge.substrate.zuup_audit import AuditEntry, SQLiteAuditStore
         import tempfile
+
+        from forge.substrate.zuup_audit import AuditEntry, SQLiteAuditStore
 
         with tempfile.TemporaryDirectory() as tmpdir:
             store = SQLiteAuditStore(f"{tmpdir}/test_audit.db")
@@ -281,7 +282,7 @@ class TestAuditChain:
 
 class TestAuth:
     def test_principal_has_role(self):
-        from forge.substrate.zuup_auth import ZuupPrincipal, PrincipalType
+        from forge.substrate.zuup_auth import PrincipalType, ZuupPrincipal
 
         principal = ZuupPrincipal(
             id="user-1",
@@ -292,7 +293,7 @@ class TestAuth:
         assert principal.has_role("viewer") is True  # admin implies all
 
     def test_principal_platform_access(self):
-        from forge.substrate.zuup_auth import ZuupPrincipal, PrincipalType
+        from forge.substrate.zuup_auth import PrincipalType, ZuupPrincipal
 
         principal = ZuupPrincipal(
             id="user-1",
@@ -303,7 +304,7 @@ class TestAuth:
         assert principal.can_access_platform("orb") is False
 
     def test_api_key_generation(self):
-        from forge.substrate.zuup_auth import generate_api_key, validate_api_key, APIKeyConfig
+        from forge.substrate.zuup_auth import APIKeyConfig, generate_api_key, validate_api_key
 
         config = APIKeyConfig()
         key, key_hash = generate_api_key(config)
@@ -318,7 +319,7 @@ class TestAuth:
 
 class TestAIOrchestrator:
     def test_tool_registry(self):
-        from forge.substrate.zuup_ai import ToolRouter, ToolCall
+        from forge.substrate.zuup_ai import ToolRouter
 
         router = ToolRouter()
         router.register("test_tool", lambda: "result", requires_approval=False)
@@ -329,8 +330,14 @@ class TestAIOrchestrator:
         from forge.substrate.zuup_ai import PromptRegistry, PromptTemplate
 
         registry = PromptRegistry()
-        v1 = PromptTemplate(name="scorer", version="1.0", template="Score: {text}", variables=["text"], platform="test")
-        v2 = PromptTemplate(name="scorer", version="2.0", template="Analyze: {text}", variables=["text"], platform="test")
+        v1 = PromptTemplate(
+            name="scorer", version="1.0", template="Score: {text}",
+            variables=["text"], platform="test",
+        )
+        v2 = PromptTemplate(
+            name="scorer", version="2.0", template="Analyze: {text}",
+            variables=["text"], platform="test",
+        )
         registry.register(v1)
         registry.register(v2)
 

@@ -117,11 +117,17 @@ async def api_deploy(platform: str):
         "deploy": {
             "render": {
                 "url": "https://dashboard.render.com/select-repo?type=blueprint",
-                "instructions": "Connect your GitHub repo. Ensure render.yaml is at repo root. Set Root Directory to zuup-forge if prompted.",
+                "instructions": (
+                    "Connect your GitHub repo. Ensure render.yaml is at repo root. "
+                    "Set Root Directory to zuup-forge if prompted."
+                ),
             },
             "railway": {
                 "url": "https://railway.app/new",
-                "instructions": "New Project → Deploy from GitHub → select zuup-forge. Set Root Directory to zuup-forge. Use platforms/aureon/Dockerfile.",
+                "instructions": (
+                    "New Project → Deploy from GitHub → select zuup-forge. "
+                    "Set Root Directory to zuup-forge. Use platforms/aureon/Dockerfile."
+                ),
             },
         },
     }

@@ -14,18 +14,16 @@ Design principles:
 
 from __future__ import annotations
 
-from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
-
+from pydantic import BaseModel, field_validator
 
 # =============================================================================
 # Enums
 # =============================================================================
 
-class DataClassification(str, Enum):
+class DataClassification(StrEnum):
     PUBLIC = "public"
     INTERNAL = "internal"
     CONFIDENTIAL = "confidential"
@@ -34,7 +32,7 @@ class DataClassification(str, Enum):
     TOP_SECRET = "top_secret"      # Requires air-gapped
 
 
-class ComplianceFramework(str, Enum):
+class ComplianceFramework(StrEnum):
     FEDRAMP_LOW = "FedRAMP_Low"
     FEDRAMP_MOD = "FedRAMP_Moderate"
     FEDRAMP_HIGH = "FedRAMP_High"
@@ -55,7 +53,7 @@ class ComplianceFramework(str, Enum):
     IRB = "IRB"
 
 
-class FieldType(str, Enum):
+class FieldType(StrEnum):
     STRING = "string"
     TEXT = "text"
     INTEGER = "integer"
@@ -73,13 +71,13 @@ class FieldType(str, Enum):
     BINARY = "binary"
 
 
-class RelationType(str, Enum):
+class RelationType(StrEnum):
     ONE_TO_ONE = "one_to_one"
     ONE_TO_MANY = "one_to_many"
     MANY_TO_MANY = "many_to_many"
 
 
-class AuthMethod(str, Enum):
+class AuthMethod(StrEnum):
     API_KEY = "api_key"
     JWT = "jwt"
     OIDC = "oidc"
@@ -87,7 +85,7 @@ class AuthMethod(str, Enum):
     NONE = "none"
 
 
-class ModelType(str, Enum):
+class ModelType(StrEnum):
     CLASSIFIER = "classifier"
     GENERATOR = "generator"
     EMBEDDER = "embedder"
@@ -96,7 +94,7 @@ class ModelType(str, Enum):
     AGENT = "agent"
 
 
-class DeployTarget(str, Enum):
+class DeployTarget(StrEnum):
     LOCAL = "local"
     DEV = "dev"
     STAGING = "staging"

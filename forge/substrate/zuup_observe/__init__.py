@@ -4,17 +4,23 @@ Zuup Observe Substrate — Tracing, Logging, Metrics, Health
 
 from __future__ import annotations
 
-import functools, json, logging, os, time
-from datetime import datetime, timezone
-from typing import Any, Callable
+import functools
+import json
+import logging
+import os
+import time
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
+
 from fastapi import APIRouter
 
 
 class StructuredFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         entry = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -105,7 +111,7 @@ health_router = APIRouter(tags=["health"])
 
 @health_router.get("/health")
 async def health():
-    return {"status": "healthy", "service": _service_name, "ts": datetime.now(timezone.utc).isoformat()}
+    return {"status": "healthy", "service": _service_name, "ts": datetime.now(UTC).isoformat()}
 
 @health_router.get("/health/ready")
 async def ready():

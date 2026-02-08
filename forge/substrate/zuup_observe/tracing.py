@@ -1,8 +1,11 @@
 """Zuup Observe: tracing, metrics, structured logging."""
 
 from __future__ import annotations
-import functools, logging, time
-from typing import Any, Callable
+
+import functools
+import logging
+import time
+from collections.abc import Callable
 
 
 class StructuredLogger:
@@ -22,8 +25,8 @@ class StructuredLogger:
 def setup_tracing(service_name: str) -> None:
     try:
         from opentelemetry import trace
-        from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace import TracerProvider
         provider = TracerProvider(resource=Resource.create({"service.name": service_name}))
         trace.set_tracer_provider(provider)
     except ImportError:
@@ -33,7 +36,7 @@ def setup_tracing(service_name: str) -> None:
 def traced(func: Callable) -> Callable:
     @functools.wraps(func)
     async def wrapper(*args, **kwargs):
-        start = time.monotonic()
+        time.monotonic()
         try:
             return await func(*args, **kwargs)
         finally:

@@ -2,16 +2,21 @@
 Zuup Audit Substrate - Hash-chain attestation system.
 """
 from __future__ import annotations
-import hashlib, json, sqlite3
-from datetime import datetime, timezone
+
+import hashlib
+import json
+import sqlite3
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
+
 from pydantic import BaseModel, Field
+
 
 class AuditEntry(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid4()))
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     platform: str
     action: str
     principal_id: str
@@ -32,7 +37,7 @@ class AuditEntry(BaseModel):
         }
         return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
-    def finalize(self) -> "AuditEntry":
+    def finalize(self) -> AuditEntry:
         self.entry_hash = self.compute_hash()
         return self
 
@@ -81,7 +86,9 @@ class SQLiteAuditStore:
         entry.finalize()
         conn = sqlite3.connect(self.db_path)
         conn.execute(
-            "INSERT INTO audit_chain (id,timestamp,platform,action,principal_id,entity_type,entity_id,payload_hash,prev_hash,metadata,entry_hash) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO audit_chain (id,timestamp,platform,action,principal_id,"
+            "entity_type,entity_id,payload_hash,prev_hash,metadata,entry_hash) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (entry.id, entry.timestamp.isoformat(), entry.platform, entry.action,
              entry.principal_id, entry.entity_type, entry.entity_id, entry.payload_hash,
              entry.prev_hash, json.dumps(entry.metadata), entry.entry_hash))
@@ -91,30 +98,54 @@ class SQLiteAuditStore:
 
     def get_last_hash(self, platform: str) -> str | None:
         conn = sqlite3.connect(self.db_path)
-        row = conn.execute("SELECT entry_hash FROM audit_chain WHERE platform=? ORDER BY timestamp DESC LIMIT 1", (platform,)).fetchone()
+        row = conn.execute(
+            "SELECT entry_hash FROM audit_chain WHERE platform=? ORDER BY timestamp DESC LIMIT 1",
+            (platform,),
+        ).fetchone()
         conn.close()
         return row[0] if row else None
 
     def query(self, q: AuditQuery) -> list[AuditEntry]:
         conds, params = [], []
-        if q.platform: conds.append("platform=?"); params.append(q.platform)
-        if q.entity_type: conds.append("entity_type=?"); params.append(q.entity_type)
-        if q.entity_id: conds.append("entity_id=?"); params.append(q.entity_id)
+        if q.platform:
+            conds.append("platform=?")
+            params.append(q.platform)
+        if q.entity_type:
+            conds.append("entity_type=?")
+            params.append(q.entity_type)
+        if q.entity_id:
+            conds.append("entity_id=?")
+            params.append(q.entity_id)
         where = " AND ".join(conds) if conds else "1=1"
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
-        rows = conn.execute(f"SELECT * FROM audit_chain WHERE {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?", params + [q.limit, q.offset]).fetchall()
+        sql = f"SELECT * FROM audit_chain WHERE {where} ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+        rows = conn.execute(sql, params + [q.limit, q.offset]).fetchall()
         conn.close()
-        return [AuditEntry(id=r["id"], timestamp=datetime.fromisoformat(r["timestamp"]),
-                          platform=r["platform"], action=r["action"], principal_id=r["principal_id"],
-                          entity_type=r["entity_type"], entity_id=r["entity_id"],
-                          payload_hash=r["payload_hash"], prev_hash=r["prev_hash"],
-                          metadata=json.loads(r["metadata"]), entry_hash=r["entry_hash"]) for r in rows]
+        out = []
+        for r in rows:
+            out.append(AuditEntry(
+                id=r["id"],
+                timestamp=datetime.fromisoformat(r["timestamp"]),
+                platform=r["platform"],
+                action=r["action"],
+                principal_id=r["principal_id"],
+                entity_type=r["entity_type"],
+                entity_id=r["entity_id"],
+                payload_hash=r["payload_hash"],
+                prev_hash=r["prev_hash"],
+                metadata=json.loads(r["metadata"]),
+                entry_hash=r["entry_hash"],
+            ))
+        return out
 
     def verify_chain(self, platform: str, limit: int = 1000) -> ChainVerificationResult:
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
-        rows = conn.execute("SELECT * FROM audit_chain WHERE platform=? ORDER BY timestamp ASC LIMIT ?", (platform, limit)).fetchall()
+        rows = conn.execute(
+            "SELECT * FROM audit_chain WHERE platform=? ORDER BY timestamp ASC LIMIT ?",
+            (platform, limit),
+        ).fetchall()
         conn.close()
         if not rows:
             return ChainVerificationResult(valid=True, entries_checked=0)
