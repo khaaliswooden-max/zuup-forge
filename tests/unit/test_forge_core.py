@@ -289,7 +289,7 @@ class TestAISubstrate:
     def test_prompt_registry(self):
         tmpl = PromptTemplate(
             name="test_prompt", version="1.0", platform="test",
-            template="Score this: {{opportunity}}",
+            template="Score this: {opportunity}",
             variables=["opportunity"],
         )
         prompt_registry.register(tmpl)
