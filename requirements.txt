@@ -1,4 +1,4 @@
-# Forge UI — Vercel Python runtime (root copy for repo-root deploys)
+# Forge UI — Vercel Python runtime
 fastapi>=0.110
 pyyaml>=6.0
 pydantic>=2.0

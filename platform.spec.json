@@ -1,0 +1,834 @@
+{
+  "platform": {
+    "name": "aureon",
+    "display_name": "Aureon™",
+    "domain": "federal_procurement",
+    "description": "Planetary-Scale Procurement Substrate",
+    "version": "0.1.0",
+    "icon": "📋",
+    "owners": [
+      "khaaliswooden-max"
+    ],
+    "tags": [
+      "procurement",
+      "federal",
+      "sled",
+      "govtech"
+    ]
+  },
+  "compliance": {
+    "frameworks": [
+      "FAR",
+      "DFARS",
+      "CMMC_L2",
+      "FedRAMP_Moderate"
+    ],
+    "data_classification": "CUI",
+    "audit_retention_days": 2555,
+    "pii_fields_encrypted": true,
+    "data_residency": [
+      "US"
+    ],
+    "breach_notification_hours": 72,
+    "evidence_auto_collect": true
+  },
+  "entities": [
+    {
+      "name": "Opportunity",
+      "description": "A federal contracting opportunity from SAM.gov",
+      "fields": [
+        {
+          "name": "notice_id",
+          "type": "string",
+          "description": "",
+          "required": true,
+          "indexed": true,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "title",
+          "type": "string",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": true,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "agency",
+          "type": "string",
+          "description": "",
+          "required": true,
+          "indexed": true,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "sub_agency",
+          "type": "string",
+          "description": "",
+          "required": false,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "naics_codes",
+          "type": "string[]",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "set_asides",
+          "type": "string[]",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "response_deadline",
+          "type": "datetime",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "estimated_value",
+          "type": "decimal",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "place_of_performance",
+          "type": "string",
+          "description": "",
+          "required": false,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "solicitation_type",
+          "type": "string",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "full_text",
+          "type": "text",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": true,
+          "vectorize": true,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "embedding",
+          "type": "vector",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "source_url",
+          "type": "string",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        }
+      ],
+      "relations": [
+        {
+          "target": "Vendor",
+          "type": "many_to_many",
+          "via": "OpportunityMatch",
+          "cascade_delete": false,
+          "description": ""
+        }
+      ],
+      "soft_delete": true,
+      "versioned": false,
+      "audit_all": true,
+      "retention_days": null
+    },
+    {
+      "name": "Vendor",
+      "description": "A potential contractor/vendor",
+      "fields": [
+        {
+          "name": "cage_code",
+          "type": "string",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": true,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "uei",
+          "type": "string",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": true,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "legal_name",
+          "type": "string",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": true,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "dba_name",
+          "type": "string",
+          "description": "",
+          "required": false,
+          "indexed": false,
+          "unique": false,
+          "searchable": true,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "capabilities",
+          "type": "string[]",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": true,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "naics_codes",
+          "type": "string[]",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "certifications",
+          "type": "string[]",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "past_performance_score",
+          "type": "float",
+          "description": "",
+          "required": false,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "sam_status",
+          "type": "string",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "contact_email",
+          "type": "string",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": true,
+          "encrypted_at_rest": true,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "hubzone_qualified",
+          "type": "boolean",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "capability_embedding",
+          "type": "vector",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        }
+      ],
+      "relations": [],
+      "soft_delete": true,
+      "versioned": true,
+      "audit_all": true,
+      "retention_days": null
+    },
+    {
+      "name": "OpportunityMatch",
+      "description": "AI-scored match between opportunity and vendor",
+      "fields": [
+        {
+          "name": "match_score",
+          "type": "float",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "capability_score",
+          "type": "float",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "compliance_score",
+          "type": "float",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "past_performance_score",
+          "type": "float",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "set_aside_eligible",
+          "type": "boolean",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "explanation",
+          "type": "text",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "model_version",
+          "type": "string",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        },
+        {
+          "name": "confidence",
+          "type": "float",
+          "description": "",
+          "required": true,
+          "indexed": false,
+          "unique": false,
+          "searchable": false,
+          "vectorize": false,
+          "pii": false,
+          "encrypted_at_rest": false,
+          "default": null,
+          "min_length": null,
+          "max_length": null,
+          "regex": null,
+          "vector_dimensions": 768
+        }
+      ],
+      "relations": [],
+      "soft_delete": true,
+      "versioned": false,
+      "audit_all": true,
+      "retention_days": null
+    }
+  ],
+  "ai": {
+    "models": [
+      {
+        "name": "opportunity_scorer",
+        "type": "ranker",
+        "description": "",
+        "input": [
+          "opportunity_text",
+          "vendor_capabilities"
+        ],
+        "output": "match_score",
+        "base_model": "claude-sonnet-4-20250514",
+        "guardrails": [
+          "no_pii_in_scores",
+          "explainable_factors"
+        ],
+        "eval_suite": null,
+        "eval_metrics": [
+          {
+            "name": "ndcg",
+            "type": "custom",
+            "target": 0.85,
+            "weight": 2.0,
+            "custom_fn": null
+          },
+          {
+            "name": "latency",
+            "type": "latency_ms",
+            "target": 2000.0,
+            "weight": 1.0,
+            "custom_fn": null
+          }
+        ],
+        "max_latency_ms": 5000,
+        "fallback_model": null,
+        "preference_enabled": true
+      }
+    ],
+    "tools": [
+      {
+        "name": "sam_gov_search",
+        "type": "api_integration",
+        "description": "",
+        "endpoint": "https://api.sam.gov/opportunities/v2/search",
+        "auth": "api_key",
+        "rate_limit": "100/min",
+        "timeout_ms": 10000,
+        "requires_approval": false,
+        "idempotent": false
+      }
+    ],
+    "guardrails": [
+      {
+        "name": "no_pii_in_scores",
+        "type": "output",
+        "description": "",
+        "rule": "no_pii_check(output)",
+        "action": "block"
+      },
+      {
+        "name": "explainable_factors",
+        "type": "output",
+        "description": "",
+        "rule": "'explanation' in output",
+        "action": "block"
+      }
+    ],
+    "preference_domains": [
+      {
+        "domain": "procurement",
+        "categories": [
+          "rfp_analysis",
+          "vendor_matching",
+          "compliance_check",
+          "proposal_scoring"
+        ],
+        "min_quality_score": 0.7,
+        "target_count": 500
+      }
+    ]
+  },
+  "api": {
+    "version": "v1",
+    "base_path": "/api",
+    "routes": [
+      {
+        "path": "/opportunities",
+        "methods": [
+          "GET",
+          "POST"
+        ],
+        "auth": "required",
+        "rate_limit": null,
+        "description": "",
+        "request_schema": null,
+        "response_schema": "Opportunity",
+        "pagination": true,
+        "cache_ttl_seconds": 0
+      },
+      {
+        "path": "/opportunities/{id}",
+        "methods": [
+          "GET",
+          "PUT",
+          "DELETE"
+        ],
+        "auth": "required",
+        "rate_limit": null,
+        "description": "",
+        "request_schema": null,
+        "response_schema": "Opportunity",
+        "pagination": true,
+        "cache_ttl_seconds": 0
+      },
+      {
+        "path": "/opportunities/{id}/matches",
+        "methods": [
+          "GET"
+        ],
+        "auth": "required",
+        "rate_limit": null,
+        "description": "",
+        "request_schema": null,
+        "response_schema": "OpportunityMatch",
+        "pagination": true,
+        "cache_ttl_seconds": 0
+      },
+      {
+        "path": "/vendors",
+        "methods": [
+          "GET",
+          "POST"
+        ],
+        "auth": "required",
+        "rate_limit": null,
+        "description": "",
+        "request_schema": null,
+        "response_schema": "Vendor",
+        "pagination": true,
+        "cache_ttl_seconds": 0
+      },
+      {
+        "path": "/vendors/{id}",
+        "methods": [
+          "GET",
+          "PUT"
+        ],
+        "auth": "required",
+        "rate_limit": null,
+        "description": "",
+        "request_schema": null,
+        "response_schema": "Vendor",
+        "pagination": true,
+        "cache_ttl_seconds": 0
+      },
+      {
+        "path": "/search",
+        "methods": [
+          "POST"
+        ],
+        "auth": "required",
+        "rate_limit": null,
+        "description": "",
+        "request_schema": null,
+        "response_schema": null,
+        "pagination": true,
+        "cache_ttl_seconds": 0
+      }
+    ],
+    "global_rate_limit": "500/min",
+    "cors_origins": [
+      "*"
+    ],
+    "docs_enabled": true
+  },
+  "deploy_targets": [
+    "dev",
+    "staging",
+    "production",
+    "govcloud"
+  ],
+  "resource_limits": {
+    "cpu": "1000m",
+    "memory": "2Gi",
+    "gpu": null
+  },
+  "features": {
+    "audit_chain": true,
+    "preference_collection": true,
+    "compliance_hooks": true,
+    "observability": true,
+    "api_versioning": true,
+    "rate_limiting": true,
+    "caching": true
+  }
+}
